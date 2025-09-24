@@ -81,7 +81,7 @@ const VideoControls: React.FC<VideoControlsProps> = ({
   const animatePress = (callback: () => void) => {
     // Try haptic feedback, but don't let it block the animation
     triggerHaptic();
-    
+
     Animated.sequence([
       Animated.timing(scaleAnim, {
         toValue: 0.95,
@@ -122,16 +122,16 @@ const VideoControls: React.FC<VideoControlsProps> = ({
           style={[
             styles.controlButton,
             isMuted && styles.mutedButton,
-            styles.iconButton
+            styles.iconButton,
           ]}
           onPress={() => animatePress(onToggleMute)}
           activeOpacity={0.8}
         >
           <View style={styles.iconContainer}>
             <Ionicons
-              name={isMuted ? "mic-off" : "mic"}
+              name={isMuted ? 'mic-off' : 'mic'}
               size={24}
-              color={isMuted ? "#ff4444" : "#fff"}
+              color={isMuted ? '#ff4444' : '#fff'}
             />
           </View>
           <Text style={[styles.controlText, isMuted && styles.activeText]}>
@@ -146,16 +146,16 @@ const VideoControls: React.FC<VideoControlsProps> = ({
           style={[
             styles.controlButton,
             !isVideoEnabled && styles.videoDisabledButton,
-            styles.iconButton
+            styles.iconButton,
           ]}
           onPress={() => animatePress(onToggleVideo)}
           activeOpacity={0.8}
         >
           <View style={styles.iconContainer}>
             <Ionicons
-              name={isVideoEnabled ? "videocam" : "videocam-off"}
+              name={isVideoEnabled ? 'videocam' : 'videocam-off'}
               size={24}
-              color={!isVideoEnabled ? "#ff4444" : "#fff"}
+              color={!isVideoEnabled ? '#ff4444' : '#fff'}
             />
           </View>
           <Text style={[styles.controlText, !isVideoEnabled && styles.activeText]}>
@@ -187,7 +187,7 @@ const VideoControls: React.FC<VideoControlsProps> = ({
         style={[
           styles.controlButton,
           styles.nextButton,
-          !isConnected && styles.disabledButton
+          !isConnected && styles.disabledButton,
         ]}
         onPress={() => animatePress(onNextPartner)}
         disabled={!isConnected}
@@ -197,7 +197,7 @@ const VideoControls: React.FC<VideoControlsProps> = ({
           <Ionicons
             name="arrow-forward"
             size={24}
-            color={isConnected ? "#fff" : "#666"}
+            color={isConnected ? '#fff' : '#666'}
           />
         </View>
         <Text style={[styles.controlText, !isConnected && styles.disabledText]}>

@@ -21,7 +21,7 @@ const { width, height } = Dimensions.get('window');
 export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const navigation = useNavigation<any>();
-  
+
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -69,8 +69,8 @@ export default function LoginScreen() {
   }, []);
 
   const handleGoogleLogin = async () => {
-    if (isLoading) return;
-    
+    if (isLoading) {return;}
+
     setIsLoading(true);
     try {
       await loginWithGoogle();
@@ -90,24 +90,24 @@ export default function LoginScreen() {
       end={{ x: 1, y: 1 }}
     >
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      
-      <Animated.View 
+
+      <Animated.View
         style={[
           styles.content,
           {
             opacity: fadeAnim,
             transform: [
               { translateY: slideAnim },
-              { scale: scaleAnim }
-            ]
-          }
+              { scale: scaleAnim },
+            ],
+          },
         ]}
       >
         {/* Logo */}
-        <Animated.View 
+        <Animated.View
           style={[
             styles.logoContainer,
-            { transform: [{ scale: pulseAnim }] }
+            { transform: [{ scale: pulseAnim }] },
           ]}
         >
           <View style={styles.logoCircle}>
@@ -118,7 +118,7 @@ export default function LoginScreen() {
         {/* Title */}
         <Text style={styles.title}>Welcome to KwickLingo</Text>
         <Text style={styles.subtitle}>Connect with the world instantly</Text>
-        
+
         {/* Features */}
         <View style={styles.featuresContainer}>
           <View style={styles.featureItem}>
@@ -136,8 +136,8 @@ export default function LoginScreen() {
         </View>
 
         {/* Google Sign In Button */}
-        <TouchableOpacity 
-          style={[styles.googleButton, isLoading && styles.googleButtonDisabled]} 
+        <TouchableOpacity
+          style={[styles.googleButton, isLoading && styles.googleButtonDisabled]}
           onPress={handleGoogleLogin}
           disabled={isLoading}
           activeOpacity={0.8}

@@ -25,14 +25,14 @@ const REPORT_REASONS = [
   'Violence or threats',
   'Nudity or sexual content',
   'Hate speech',
-  'Other'
+  'Other',
 ];
 
 const ReportModal: React.FC<ReportModalProps> = ({
   visible,
   onClose,
   onReport,
-  partnerId
+  partnerId,
 }) => {
   const [selectedReason, setSelectedReason] = useState<string>('');
   const [description, setDescription] = useState<string>('');
@@ -47,7 +47,7 @@ const ReportModal: React.FC<ReportModalProps> = ({
     setSelectedReason('');
     setDescription('');
     onClose();
-    
+
     Alert.alert(
       'Report Submitted',
       'Thank you for your report. We will review it and take appropriate action.',
@@ -60,13 +60,13 @@ const ReportModal: React.FC<ReportModalProps> = ({
       key={reason}
       style={[
         styles.reasonButton,
-        selectedReason === reason && styles.selectedReasonButton
+        selectedReason === reason && styles.selectedReasonButton,
       ]}
       onPress={() => setSelectedReason(reason)}
     >
       <Text style={[
         styles.reasonText,
-        selectedReason === reason && styles.selectedReasonText
+        selectedReason === reason && styles.selectedReasonText,
       ]}>
         {reason}
       </Text>

@@ -35,7 +35,7 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  if (initializing || hasSeenWelcome === null) return null; // Show splash if needed
+  if (initializing || hasSeenWelcome === null) {return null;} // Show splash if needed
 
   return (
     <NavigationContainer>

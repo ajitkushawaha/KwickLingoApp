@@ -18,7 +18,7 @@ const SkipButton: React.FC<SkipButtonProps> = ({ onSkip, disabled = false, loadi
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
   const handlePress = () => {
-    if (disabled || loading) return;
+    if (disabled || loading) {return;}
 
     // Animate button press
     Animated.sequence([
@@ -43,20 +43,20 @@ const SkipButton: React.FC<SkipButtonProps> = ({ onSkip, disabled = false, loadi
         style={[
           styles.skipButton,
           disabled && styles.disabledButton,
-          loading && styles.loadingButton
+          loading && styles.loadingButton,
         ]}
         onPress={handlePress}
         disabled={disabled || loading}
       >
         <View style={styles.buttonContent}>
-          <Ionicons 
-            name={loading ? "refresh" : "arrow-forward"} 
-            size={20} 
-            color={disabled ? "#999" : "#fff"} 
+          <Ionicons
+            name={loading ? 'refresh' : 'arrow-forward'}
+            size={20}
+            color={disabled ? '#999' : '#fff'}
           />
           <Text style={[
             styles.skipText,
-            disabled && styles.disabledText
+            disabled && styles.disabledText,
           ]}>
             {loading ? 'Finding...' : 'Skip'}
           </Text>

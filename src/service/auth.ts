@@ -26,12 +26,12 @@ export const loginWithEmail = async (email: string, password: string): Promise<F
   try {
     const userCredential = await auth().signInWithEmailAndPassword(email, password);
     const user = userCredential.user;
-    
+
     // Save auth state
     if (user) {
       await AsyncStorage.setItem('isAuthenticated', 'true');
     }
-    
+
     return user;
   } catch (error: any) {
     console.error('Login error:', error);
@@ -51,16 +51,16 @@ export const loginWithGoogle = async (): Promise<FirebaseAuthTypes.User | null> 
     }
     // Create a Google credential
     const googleCredential = auth.GoogleAuthProvider.credential(idToken);
-    
+
     // Sign-in with credential
     const userCredential = await auth().signInWithCredential(googleCredential);
     const user = userCredential.user;
-    
+
     // Save auth state
     if (user) {
       await AsyncStorage.setItem('isAuthenticated', 'true');
     }
-    
+
     return user;
   } catch (error: any) {
     console.error('Google login error:', error);
@@ -81,10 +81,10 @@ export const signOut = async (): Promise<void> => {
       // Ignore Google sign-out errors
       console.log('Google sign-out error (ignored):', error);
     }
-    
+
     // Sign out from Firebase
     await auth().signOut();
-    
+
     // Clear auth state
     await AsyncStorage.removeItem('isAuthenticated');
   } catch (error: any) {

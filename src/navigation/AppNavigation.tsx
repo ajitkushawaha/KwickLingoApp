@@ -5,6 +5,8 @@ import { createStackNavigator } from '@react-navigation/stack';
 import LoginScreen from '../screens/Login';
 import HomeScreen from '../screens/Home';
 import VideoChatScreen from '../screens/VideoChatScreen';
+import LiveStreamScreen from '../screens/LiveStreamScreen';
+import ViewerScreen from '../screens/ViewerScreen';
 import Welcome from '../screens/Welcome';
 import PreferencesScreen from '../screens/PreferencesScreen';
 
@@ -13,6 +15,12 @@ export type RootStackParamList = {
   Login: undefined;
   Home: undefined;
   Streame: undefined;
+  LiveStream: undefined;
+  Viewer: {
+    streamId: string;
+    streamerId: string;
+    streamTitle: string;
+  };
   Preferences: undefined;
 };
 
@@ -54,6 +62,16 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({ isAuthenticated, hasSeenWel
           <Stack.Screen
             name="Streame"
             component={VideoChatScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="LiveStream"
+            component={LiveStreamScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Viewer"
+            component={ViewerScreen}
             options={{ headerShown: false }}
           />
           <Stack.Screen

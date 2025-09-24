@@ -18,7 +18,6 @@ import {
 
 // Get screen dimensions
 const { width, height } = Dimensions.get('window');
-import { PanGestureHandler, PinchGestureHandler, State } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/AppNavigation';
@@ -38,6 +37,7 @@ import { getCurrentUser } from '../service/auth';
 import { requestVideoCallPermissions } from '../utils/permissions';
 import { CONFIG } from '../config/config';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type VideoChatScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Streame'>;
 
@@ -51,7 +51,7 @@ interface ChatMessage {
   sender: 'me' | 'partner';
   timestamp: number;
   status?: 'sending' | 'sent' | 'delivered' | 'read';
-} 
+}
 
 const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -66,29 +66,18 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
   const [messageText, setMessageText] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [showChat, setShowChat] = useState<boolean>(false);
-  const [chatMode, setChatMode] = useState<'video' | 'text'>('video');
   const [isTyping, setIsTyping] = useState<boolean>(false);
   const [partnerTyping, setPartnerTyping] = useState<boolean>(false);
-  const [chatHeight, setChatHeight] = useState<number>(0);
-  const [userInterests, setUserInterests] = useState<string[]>([]);
   const [showReportModal, setShowReportModal] = useState<boolean>(false);
   const [isSkipping, setIsSkipping] = useState<boolean>(false);
-  const [videoKey, setVideoKey] = useState<number>(0);
   const [streamReady, setStreamReady] = useState<boolean>(false);
   const [componentMounted, setComponentMounted] = useState<boolean>(false);
-  const [forceVideoRender, setForceVideoRender] = useState<number>(0);
-  const [videoComponentKey, setVideoComponentKey] = useState<string>('initial');
-  
-  // Local video position and size state
-  const [localVideoPosition, setLocalVideoPosition] = useState({ x: width - (width / 4) - 20, y: 20 });
-  const [localVideoSize, setLocalVideoSize] = useState({ width: width / 4, height: height / 4 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  
-  // Gesture state tracking
-  const [lastPanTranslation, setLastPanTranslation] = useState({ x: 0, y: 0 });
-  const [lastPinchScale, setLastPinchScale] = useState(1);
-  const [initialSize, setInitialSize] = useState({ width: width / 4, height: height / 4 });
+
+  // Dynamic Layout State
+  const [currentLayout, setCurrentLayout] = useState<'split' | 'pip' | 'fullscreen'>('split');
+  const [showLayoutSelector, setShowLayoutSelector] = useState<boolean>(false);
+  const [layoutAnimating, setLayoutAnimating] = useState<boolean>(false);
+
 
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const userId = useRef<string | null>(null);
@@ -98,21 +87,21 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
+  const layoutAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
   const chatSlideAnim = useRef(new Animated.Value(300)).current;
   const chatOpacityAnim = useRef(new Animated.Value(0)).current;
   const messageSlideAnim = useRef(new Animated.Value(50)).current;
   const controlsOpacity = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  
+
   // Force re-render state for video
-  const [forceRender, setForceRender] = useState(0);
 
   // Initialize animations and component
   useEffect(() => {
     // Set component as mounted immediately
     setComponentMounted(true);
-    
+
     // Start animations
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -197,72 +186,13 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
     }
   }, [messages.length]);
 
-  // Force re-render when local stream changes
-  useEffect(() => {
-    if (localStream) {
-      console.log('🔄 Local stream changed, forcing re-render...');
-      setForceRender(prev => prev + 1);
-      setVideoKey(prev => prev + 1); // Force RTCView re-render
-      setForceVideoRender(prev => prev + 1);
-      
-      // Additional delay to ensure video renders
-      setTimeout(() => {
-        console.log('🔄 Additional re-render triggered...');
-        setForceRender(prev => prev + 1);
-        setVideoKey(prev => prev + 1);
-        setForceVideoRender(prev => prev + 1);
-      }, 100);
-    }
-  }, [localStream]);
-
-  // Special effect for first load video rendering
-  useEffect(() => {
-    if (localStream && streamReady && componentMounted) {
-      console.log('🎯 First load video rendering - forcing aggressive re-render...');
-      
-      // Change video component key to force complete remount
-      setVideoComponentKey(`video-${Date.now()}-${Math.random()}`);
-      
-      // Immediate aggressive re-render
-      setForceVideoRender(prev => prev + 1);
-      setVideoKey(prev => prev + 1);
-      setForceRender(prev => prev + 1);
-      
-      // Multiple rapid re-renders for first load
-      [10, 25, 50, 75, 100, 150, 200, 300, 500].forEach((delay, index) => {
-        setTimeout(() => {
-          console.log(`🎯 First load re-render ${index + 1} at ${delay}ms...`);
-          setForceVideoRender(prev => prev + 1);
-          setVideoKey(prev => prev + 1);
-          setForceRender(prev => prev + 1);
-          setVideoComponentKey(`video-${Date.now()}-${Math.random()}`);
-        }, delay);
-      });
-    }
-  }, [localStream, streamReady, componentMounted]);
-
-  // Force re-render when remote stream changes
-  useEffect(() => {
-    if (remoteStream) {
-      console.log('🔄 Remote stream changed, forcing re-render...');
-      setForceRender(prev => prev + 1);
-      setVideoKey(prev => prev + 1); // Force RTCView re-render
-      
-      // Additional delay to ensure video renders
-      setTimeout(() => {
-        console.log('🔄 Additional remote re-render triggered...');
-        setForceRender(prev => prev + 1);
-        setVideoKey(prev => prev + 1);
-      }, 100);
-    }
-  }, [remoteStream]);
 
   // Initialize WebRTC and get user media
   useEffect(() => {
     const setupWebRTC = async () => {
       try {
         console.log('🚀 Starting VideoChatScreen setup...');
-        
+
         // Test server connection first (before requesting permissions)
         console.log('🧪 Testing server connection...');
         const serverOnline = await testServerConnection();
@@ -273,7 +203,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
             'Cannot connect to the signaling server. Please check:\n\n1. Server is running on port 3000\n2. Your internet connection\n3. Firewall settings\n\nFor Android emulator, make sure you\'re using 10.0.2.2:3000',
             [
               { text: 'Retry', onPress: () => setupWebRTC() },
-              { text: 'Go Back', onPress: () => navigation.goBack() }
+              { text: 'Go Back', onPress: () => navigation.goBack() },
             ]
           );
           setLoading(false);
@@ -316,32 +246,27 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
           active: stream.active,
           videoTracks: stream.getVideoTracks().length,
           audioTracks: stream.getAudioTracks().length,
-          streamURL: stream.toURL()
+          streamURL: stream.toURL(),
         });
-        
-        // Force immediate re-render for local video
-        setTimeout(() => {
-          console.log('🔄 Forcing local video re-render...');
-          setForceRender(prev => prev + 1);
-        }, 100);
+
 
         // Simplified stream ready check
         const waitForStreamReady = () => {
           return new Promise<void>((resolve) => {
             let attempts = 0;
             const maxAttempts = 10; // 1 second max wait
-            
+
             const checkStream = () => {
               attempts++;
               console.log(`⏳ Checking stream readiness (attempt ${attempts}/${maxAttempts})...`);
-              
+
               if (stream && stream.active) {
                 console.log('✅ Stream is active, proceeding...');
                 setStreamReady(true);
                 resolve();
                 return;
               }
-              
+
               if (attempts >= maxAttempts) {
                 console.log('⚠️ Stream ready timeout, proceeding anyway...');
                 setStreamReady(true);
@@ -363,34 +288,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
         // Set loading to false immediately after getting stream
         setLoading(false);
         console.log('📱 Loading set to false, video should be visible now');
-        
-        // Aggressive video re-rendering strategy
-        const forceVideoRenders = () => {
-          console.log('🔄 Starting aggressive video re-render sequence...');
-          
-          // Immediate re-render
-          setVideoKey(prev => prev + 1);
-          setForceRender(prev => prev + 1);
-          setForceVideoRender(prev => prev + 1);
-          
-          // Multiple timed re-renders
-          [50, 100, 200, 400, 600, 1000, 1500, 2000].forEach((delay, index) => {
-            setTimeout(() => {
-              console.log(`🔄 Video re-render ${index + 2} at ${delay}ms...`);
-              setVideoKey(prev => prev + 1);
-              setForceRender(prev => prev + 1);
-              setForceVideoRender(prev => prev + 1);
-              
-              // Force stream ready if not already set
-              if (!streamReady) {
-                console.log('🔄 Forcing stream ready state...');
-                setStreamReady(true);
-              }
-            }, delay);
-          });
-        };
-        
-        forceVideoRenders();
+
 
         // Fallback timeout to ensure loading is set to false
         setTimeout(() => {
@@ -417,7 +315,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
               'Failed to establish connection with the server. Please try again.\n\nThis might be due to:\n• Network connectivity issues\n• Server not responding\n• Firewall blocking the connection\n• Android emulator network configuration',
               [
                 { text: 'Retry', onPress: () => setupWebRTC() },
-                { text: 'Go Back', onPress: () => navigation.goBack() }
+                { text: 'Go Back', onPress: () => navigation.goBack() },
               ]
             );
           }
@@ -431,11 +329,14 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
           `Failed to setup video chat: ${errorMessage}\n\nThis might be due to:\n• Camera/microphone permissions not granted\n• Device doesn't support video calling\n• Network connectivity issues`,
           [
             { text: 'Retry', onPress: () => setupWebRTC() },
-            { text: 'Go Back', onPress: () => navigation.goBack() }
+            { text: 'Go Back', onPress: () => navigation.goBack() },
           ]
         );
       }
     };
+
+    // Load layout preference
+    loadLayoutPreference();
 
     setupWebRTC();
 
@@ -448,7 +349,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
         peerConnection.current.close();
       }
       leaveQueue();
-      disconnect();   
+      disconnect();
     };
   }, [navigation]);
 
@@ -459,17 +360,17 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
       console.log('Partner found:', data.partnerId);
       setPartnerId(data.partnerId);
       setConnecting(true);
-      
+
       // Create peer connection
       await createPeerConnection();
-      
+
       // If we are the initiator, create and send offer
       if (data.initiator) {
         // Use the partnerId from the event data directly
         await createOfferWithPartnerId(data.partnerId);
       }
     });
- 
+
     // No partner found event
     global.socketIO.on('no-partner-available', () => {
       setConnecting(false);
@@ -477,16 +378,16 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
         'No Partners Available',
         'No one is available to chat right now. Please try again later.',
         [
-          { 
-            text: 'Try Again', 
-            onPress: searchForPartner 
+          {
+            text: 'Try Again',
+            onPress: searchForPartner,
           },
-          { 
-            text: 'Go Back', 
-            onPress: () => navigation.goBack() 
-          }
+          {
+            text: 'Go Back',
+            onPress: () => navigation.goBack(),
+          },
         ]
-      ); 
+      );
     });
 
     // WebRTC signaling events
@@ -495,7 +396,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
       if (peerConnection.current) {
         await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data.sdp));
         console.log('✅ Set remote description from offer');
-        
+
         // Use current partnerId or senderId if available
         const targetId = partnerId || data.senderId;
         if (targetId) {
@@ -557,7 +458,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
-        ]
+        ],
       };
 
       const pc = new RTCPeerConnection(configuration);
@@ -575,7 +476,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
         console.log('🎥 ontrack event received:', event);
         console.log('🎥 Event streams:', event.streams);
         console.log('🎥 Event track:', event.track);
-        
+
         if (event.streams && event.streams[0]) {
           console.log('✅ Setting remote stream:', event.streams[0]);
           console.log('📹 Remote stream details:', {
@@ -583,12 +484,11 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
             active: event.streams[0].active,
             videoTracks: event.streams[0].getVideoTracks().length,
             audioTracks: event.streams[0].getAudioTracks().length,
-            streamURL: event.streams[0].toURL()
+            streamURL: event.streams[0].toURL(),
           });
           setRemoteStream(event.streams[0]);
           setConnected(true);
           setConnecting(false);
-          setVideoKey(prev => prev + 1); // Force video refresh
         } else if (event.track) {
           // Fallback: handle single track
           console.log('🎥 Handling single track:', event.track);
@@ -596,7 +496,6 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
           setRemoteStream(stream);
           setConnected(true);
           setConnecting(false);
-          setVideoKey(prev => prev + 1); // Force video refresh
         } else {
           console.log('❌ No streams or tracks in ontrack event');
         }
@@ -618,7 +517,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
         console.log('🔗 ICE connection state:', state);
         console.log('🔗 ICE gathering state:', (pc as any).iceGatheringState);
         console.log('🔗 Connection state:', (pc as any).connectionState);
-        
+
         if (state === 'connected' || state === 'completed') {
           console.log('✅ WebRTC connection established!');
           // Check for remote streams after connection is established
@@ -627,15 +526,15 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
               console.log('🔍 Checking for remote streams after connection...');
               const receivers = (peerConnection.current as any).getReceivers();
               console.log('📡 Receivers:', receivers);
-              
+
               receivers.forEach((receiver: any, index: number) => {
                 console.log(`📡 Receiver ${index}:`, {
                   track: receiver.track,
                   trackKind: receiver.track?.kind,
                   trackEnabled: receiver.track?.enabled,
-                  trackReadyState: receiver.track?.readyState
+                  trackReadyState: receiver.track?.readyState,
                 });
-                
+
                 if (receiver.track && receiver.track.kind === 'video') {
                   console.log('🎥 Found video track in receiver, creating stream...');
                   const stream = new MediaStream([receiver.track]);
@@ -733,7 +632,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
     setPartnerId(null);
     setMessages([]);
     setIsSkipping(false);
-    
+
     // Close previous peer connection if exists
     if (peerConnection.current) {
       peerConnection.current.close();
@@ -751,7 +650,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
     setRemoteStream(null);
     setPartnerId(null);
     setMessages([]);
-    
+
     // Close current connection
     if (peerConnection.current) {
       peerConnection.current.close();
@@ -781,14 +680,14 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
       'Partner Disconnected',
       'Your chat partner has disconnected.',
       [
-        { 
-          text: 'Find New Partner', 
-          onPress: searchForPartner 
+        {
+          text: 'Find New Partner',
+          onPress: searchForPartner,
         },
-        { 
-          text: 'Go Home', 
-          onPress: () => navigation.navigate('Home') 
-        }
+        {
+          text: 'Go Home',
+          onPress: () => navigation.navigate('Home'),
+        },
       ]
     );
   };
@@ -818,7 +717,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
   // Switch camera (front/back)
   const switchCamera = async () => {
     console.log('🔄 Switching camera from', isFrontCamera ? 'front' : 'back', 'to', !isFrontCamera ? 'front' : 'back');
-    
+
     if (localStream) {
       // Stop current stream
       console.log('🛑 Stopping current stream tracks...');
@@ -828,7 +727,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
         // Get new stream with opposite camera
         const newFacingMode = isFrontCamera ? 'environment' : 'user';
         console.log('📹 Getting new stream with facing mode:', newFacingMode);
-        
+
         const newStream = await mediaDevices.getUserMedia({
           audio: true,
           video: {
@@ -843,7 +742,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
           active: newStream.active,
           videoTracks: newStream.getVideoTracks().length,
           audioTracks: newStream.getAudioTracks().length,
-          streamURL: newStream.toURL()
+          streamURL: newStream.toURL(),
         });
 
         setLocalStream(newStream);
@@ -855,13 +754,13 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
           console.log('🔄 Updating peer connection with new stream...');
           const senders = peerConnection.current.getSenders();
           const videoTrack = newStream.getVideoTracks()[0];
-          
+
           console.log('📡 Current senders:', senders.length);
-          
-          const videoSender = senders.find(sender => 
+
+          const videoSender = senders.find(sender =>
             sender.track?.kind === 'video'
           );
-          
+
           if (videoSender && videoTrack) {
             console.log('✅ Replacing video track in peer connection');
             await videoSender.replaceTrack(videoTrack);
@@ -893,7 +792,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
 
   // Enhanced chat functions
   const sendMessage = () => {
-    if (messageText.trim() === '' || !partnerId) return;
+    if (messageText.trim() === '' || !partnerId) {return;}
 
     const messageId = Date.now().toString();
     const newMessage: ChatMessage = {
@@ -906,7 +805,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
 
     // Add message to local state immediately
     setMessages(prev => [...prev, newMessage]);
-    
+
     // Send to server
     sendSignalingMessage('chat-message', {
       targetId: partnerId,
@@ -917,9 +816,9 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
 
     // Simulate message delivery
     setTimeout(() => {
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === messageId 
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === messageId
             ? { ...msg, status: 'sent' }
             : msg
         )
@@ -929,7 +828,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
 
   const handleChatInputChange = (text: string) => {
     setMessageText(text);
-    
+
     // Send typing indicator
     if (text.length > 0 && !isTyping) {
       setIsTyping(true);
@@ -965,7 +864,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
     };
 
     setMessages(prevMessages => [...prevMessages, newMessage]);
-    
+
     // Scroll to bottom of chat
     setTimeout(() => {
       if (chatListRef.current) {
@@ -974,60 +873,81 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
     }, 100);
   };
 
-  // Handle pan gesture for moving local video
-  const onPanGestureEvent = (event: any) => {
-    if (isDragging) {
-      const { translationX, translationY } = event.nativeEvent;
-      
-      // Calculate new position based on current position + translation
-      const newX = Math.max(0, Math.min(width - localVideoSize.width, localVideoPosition.x + translationX - lastPanTranslation.x));
-      const newY = Math.max(0, Math.min(height - localVideoSize.height, localVideoPosition.y + translationY - lastPanTranslation.y));
-      
-      setLocalVideoPosition({ x: newX, y: newY });
-      setLastPanTranslation({ x: translationX, y: translationY });
+
+  // Dynamic Layout Functions
+  const switchLayout = (newLayout: 'split' | 'pip' | 'fullscreen') => {
+    if (layoutAnimating || newLayout === currentLayout) {return;}
+
+    setLayoutAnimating(true);
+    setCurrentLayout(newLayout);
+
+    // Save layout preference
+    saveLayoutPreference(newLayout);
+
+    // Animate layout change
+    Animated.timing(layoutAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: false,
+    }).start(() => {
+      setLayoutAnimating(false);
+      layoutAnim.setValue(0);
+    });
+  };
+
+  const toggleLayoutSelector = () => {
+    setShowLayoutSelector(!showLayoutSelector);
+  };
+
+  const getLayoutStyles = () => {
+    switch (currentLayout) {
+      case 'split':
+        return {
+          remoteVideo: styles.remoteVideoSplit,
+          localVideo: styles.localVideoSplit,
+          container: styles.videoContainerSplit,
+        };
+      case 'pip':
+        return {
+          remoteVideo: styles.remoteVideoPip,
+          localVideo: styles.localVideoPip,
+          container: styles.videoContainerPip,
+        };
+      case 'fullscreen':
+        return {
+          remoteVideo: styles.remoteVideoFullscreen,
+          localVideo: styles.localVideoFullscreen,
+          container: styles.videoContainerFullscreen,
+        };
+      default:
+        return {
+          remoteVideo: styles.remoteVideoSplit,
+          localVideo: styles.localVideoSplit,
+          container: styles.videoContainerSplit,
+        };
     }
   };
 
-  const onPanHandlerStateChange = (event: any) => {
-    if (event.nativeEvent.state === State.BEGAN) {
-      setIsDragging(true);
-      setLastPanTranslation({ x: 0, y: 0 });
-    } else if (event.nativeEvent.state === State.END) {
-      setIsDragging(false);
-      setLastPanTranslation({ x: 0, y: 0 });
+  // Layout Persistence Functions
+  const saveLayoutPreference = async (layout: 'split' | 'pip' | 'fullscreen') => {
+    try {
+      await AsyncStorage.setItem('videoLayoutPreference', layout);
+      console.log('💾 Layout preference saved:', layout);
+    } catch (error) {
+      console.error('❌ Failed to save layout preference:', error);
     }
   };
 
-  // Handle pinch gesture for resizing local video
-  const onPinchGestureEvent = (event: any) => {
-    if (isResizing) {
-      const { scale } = event.nativeEvent;
-      
-      // Calculate scale relative to initial size
-      const scaleFactor = scale / lastPinchScale;
-      const newWidth = Math.max(width / 8, Math.min(width / 2.5, initialSize.width * scale));
-      const newHeight = Math.max(height / 8, Math.min(height / 2.5, initialSize.height * scale));
-      
-      setLocalVideoSize({ width: newWidth, height: newHeight });
-      setLastPinchScale(scale);
+  const loadLayoutPreference = async () => {
+    try {
+      const savedLayout = await AsyncStorage.getItem('videoLayoutPreference');
+      if (savedLayout && ['split', 'pip', 'fullscreen'].includes(savedLayout)) {
+        setCurrentLayout(savedLayout as 'split' | 'pip' | 'fullscreen');
+        console.log('📱 Loaded layout preference:', savedLayout);
+      }
+    } catch (error) {
+      console.error('❌ Failed to load layout preference:', error);
     }
-  };
- 
-  const onPinchHandlerStateChange = (event: any) => {
-    if (event.nativeEvent.state === State.BEGAN) {
-      setIsResizing(true);
-      setInitialSize(localVideoSize);
-      setLastPinchScale(1);
-    } else if (event.nativeEvent.state === State.END) {
-      setIsResizing(false);
-      setLastPinchScale(1);
-    }
-  };
-
-  // Reset local video position and size
-  const resetLocalVideo = () => {
-    setLocalVideoPosition({ x: width - (width / 4) - 20, y: 20 });
-    setLocalVideoSize({ width: width / 4, height: height / 4 });
   };
 
   // Simple initial render - always show loading first
@@ -1047,65 +967,63 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      
+
       {/* Debug info for development */}
       {/* {__DEV__ && (
         <View style={styles.debugContainer}>
           <Text style={styles.debugText}>
-            Server: {CONFIG.SERVER.SIGNALING_URL} | 
-            Connected: {isConnected() ? 'Yes' : 'No'} | 
+            Server: {CONFIG.SERVER.SIGNALING_URL} |
+            Connected: {isConnected() ? 'Yes' : 'No'} |
             Loading: {loading ? 'Yes' : 'No'}
           </Text>
           <Text style={styles.debugText}>
-            Local Stream: {localStream ? 'Yes' : 'No'} | 
-            Stream Ready: {streamReady ? 'Yes' : 'No'} | 
-            Component Mounted: {componentMounted ? 'Yes' : 'No'} | 
-            Force Render: {forceVideoRender}
+            Local Stream: {localStream ? 'Yes' : 'No'} |
+            Stream Ready: {streamReady ? 'Yes' : 'No'} |
+            Component Mounted: {componentMounted ? 'Yes' : 'No'}
           </Text>
           <Text style={styles.debugText}>
-            Remote Stream: {remoteStream ? 'Yes' : 'No'} | 
-            Partner: {partnerId || 'None'} | 
-            Video Key: {videoKey}
+            Remote Stream: {remoteStream ? 'Yes' : 'No'} |
+            Partner: {partnerId || 'None'}
           </Text>
           <Text style={styles.debugText}>
-            Video Enabled: {isVideoEnabled ? 'Yes' : 'No'} | 
-            Muted: {isMuted ? 'Yes' : 'No'} | 
+            Video Enabled: {isVideoEnabled ? 'Yes' : 'No'} |
+            Muted: {isMuted ? 'Yes' : 'No'} |
             Connecting: {connecting ? 'Yes' : 'No'}
           </Text>
           <Text style={styles.debugText}>
-            Camera: {isFrontCamera ? 'Front' : 'Back'} | 
-            Mirror: {isFrontCamera ? 'Yes' : 'No'} | 
+            Camera: {isFrontCamera ? 'Front' : 'Back'} |
+            Mirror: {isFrontCamera ? 'Yes' : 'No'} |
             Local Stream: {localStream ? 'Active' : 'None'}
           </Text>
         </View>
       )} */}
-      
+
       {!loading && (
         <View style={styles.contentContainer}>
-          <Animated.View 
+          <Animated.View
             style={[
-              styles.videoContainer,
+              getLayoutStyles().container,
               {
                 opacity: fadeAnim,
-                transform: [{ scale: scaleAnim }]
-              }
+                transform: [{ scale: scaleAnim }],
+              },
             ]}
           >
             {/* Remote video (partner) - Top full width */}
             <View style={styles.remoteVideoContainer}>
               {remoteStream ? (
                 <RTCView
-                  key={`remote-${videoComponentKey}-${videoKey}-${remoteStream.id}-${forceRender}-${forceVideoRender}`}
+                  key={`remote-${remoteStream.id}`}
                   streamURL={remoteStream.toURL()}
-                  style={styles.remoteVideo}
+                  style={getLayoutStyles().remoteVideo}
                   objectFit="cover"
                   zOrder={0}
                 />
               ) : connecting ? (
-                <Animated.View 
+                <Animated.View
                   style={[
                     styles.connectingContainer,
-                    { transform: [{ scale: pulseAnim }] }
+                    { transform: [{ scale: pulseAnim }] },
                   ]}
                 >
                   <View style={styles.connectingIconContainer}>
@@ -1120,13 +1038,13 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
                   </Text>
                 </Animated.View>
               ) : (
-                <Animated.View 
+                <Animated.View
                   style={[
                     styles.noPartnerContainer,
                     {
                       opacity: fadeAnim,
-                      transform: [{ translateY: slideAnim }]
-                    }
+                      transform: [{ translateY: slideAnim }],
+                    },
                   ]}
                 >
                   <View style={styles.noPartnerIconContainer}>
@@ -1134,7 +1052,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
                   </View>
                   <Text style={styles.noPartnerText}>Ready to Connect</Text>
                   <Text style={styles.noPartnerSubtext}>Start a new conversation with someone around the world</Text>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.findButton}
                     onPress={searchForPartner}
                     activeOpacity={0.8}
@@ -1150,11 +1068,11 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
             <View style={styles.localVideoContainerBottom}>
               {localStream ? (
                 <RTCView
-                  key={`local-simple-${localStream.id}-${forceRender}`}
+                  key={`local-${localStream.id}`}
                   streamURL={localStream.toURL()}
                   style={[
-                    styles.localVideoBottom,
-                    !isVideoEnabled && styles.videoDisabled
+                    getLayoutStyles().localVideo,
+                    !isVideoEnabled && styles.videoDisabled,
                   ]}
                   objectFit="cover"
                   zOrder={1}
@@ -1168,26 +1086,17 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
                   </Text>
                 </View>
               )}
-              
-              {/* Debug indicator */}
-              {__DEV__ && (
-                <View style={styles.debugIndicator}>
-                  <Text style={styles.debugIndicatorText}>
-                    Local: {localStream ? 'Yes' : 'No'} | 
-                    Ready: {streamReady ? 'Yes' : 'No'}
-                  </Text>
-                </View>
-              )}
+
             </View>
 
             {/* Top Controls */}
-            <Animated.View  
+            <Animated.View
               style={[
                 styles.topControls,
                 {
                   opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }]
-                }
+                  transform: [{ translateY: slideAnim }],
+                },
               ]}
             >
               {/* Back button */}
@@ -1203,7 +1112,7 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
               <View style={styles.statusContainer}>
                 <View style={[
                   styles.statusIndicator,
-                  { backgroundColor: connected ? '#00ff88' : connecting ? '#ffaa00' : '#ff4444' }
+                  { backgroundColor: connected ? '#00ff88' : connecting ? '#ffaa00' : '#ff4444' },
                 ]} />
                 <Text style={styles.statusText}>
                   {connected ? 'Connected' : connecting ? 'Connecting...' : 'Disconnected'}
@@ -1218,11 +1127,11 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
                   setShowChat(!showChat);
                 }}
                 activeOpacity={0.7}
-              > 
-                <Ionicons  
-                  name={showChat ? "chatbubbles" : "chatbubble-outline"} 
-                  size={20} 
-                  color="#fff" 
+              >
+                <Ionicons
+                  name={showChat ? 'chatbubbles' : 'chatbubble-outline'}
+                  size={20}
+                  color="#fff"
                 />
                 <Text style={styles.chatToggleText}>
                   {showChat ? 'Hide' : 'Chat'}
@@ -1243,13 +1152,13 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
 
             {/* Skip Button */}
             {connected && (
-              <Animated.View 
+              <Animated.View
                 style={[
                   styles.skipButtonContainer,
                   {
                     opacity: fadeAnim,
-                    transform: [{ scale: scaleAnim }]
-                  }
+                    transform: [{ scale: scaleAnim }],
+                  },
                 ]}
               >
                 <SkipButton
@@ -1272,6 +1181,66 @@ const VideoChatScreen: React.FC<VideoChatScreenProps> = ({ navigation }) => {
               onNextPartner={searchForPartner}
               onEndCall={() => navigation.navigate('Home')}
             />
+
+            {/* Layout Selector */}
+            <View style={styles.layoutSelectorContainer}>
+              <TouchableOpacity
+                style={styles.layoutButton}
+                onPress={toggleLayoutSelector}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="grid-outline" size={20} color="#fff" />
+              </TouchableOpacity>
+
+              {showLayoutSelector && (
+                <Animated.View style={styles.layoutOptionsContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.layoutOption,
+                      currentLayout === 'split' && styles.layoutOptionActive,
+                    ]}
+                    onPress={() => switchLayout('split')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="grid-outline" size={24} color={currentLayout === 'split' ? '#00c2ff' : '#fff'} />
+                    <Text style={[
+                      styles.layoutOptionText,
+                      currentLayout === 'split' && styles.layoutOptionTextActive,
+                    ]}>Split</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.layoutOption,
+                      currentLayout === 'pip' && styles.layoutOptionActive,
+                    ]}
+                    onPress={() => switchLayout('pip')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="square-outline" size={24} color={currentLayout === 'pip' ? '#00c2ff' : '#fff'} />
+                    <Text style={[
+                      styles.layoutOptionText,
+                      currentLayout === 'pip' && styles.layoutOptionTextActive,
+                    ]}>PiP</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.layoutOption,
+                      currentLayout === 'fullscreen' && styles.layoutOptionActive,
+                    ]}
+                    onPress={() => switchLayout('fullscreen')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="expand-outline" size={24} color={currentLayout === 'fullscreen' ? '#00c2ff' : '#fff'} />
+                    <Text style={[
+                      styles.layoutOptionText,
+                      currentLayout === 'fullscreen' && styles.layoutOptionTextActive,
+                    ]}>Full</Text>
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
+            </View>
           </Animated.View>
 
           {/* Enhanced Chat Modal */}
@@ -1461,53 +1430,6 @@ const styles = StyleSheet.create({
   localVideoBottom: {
     flex: 1,
     backgroundColor: '#1a1a1a',
-  },
-  localVideoContainer: {
-    position: 'absolute',
-    backgroundColor: 'transparent',
-    borderRadius: 12,
-    borderWidth: 3,
-    borderColor: '#00c2ff',
-    shadowColor: '#00c2ff',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-    elevation: 10,
-    overflow: 'hidden',
-    zIndex: 2,
-  },
-  localVideo: {
-    flex: 1,
-    backgroundColor: '#222',
-    borderRadius: 9,
-  },
-  localVideoTouchable: {
-    flex: 1,
-  },
-  dragHandle: {
-    position: 'absolute',
-    top: 5,
-    left: 5,
-    flexDirection: 'row',
-    opacity: 0.7,
-  },
-  dragHandleDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#fff',
-    marginRight: 2,
-  },
-  resizeHandle: {
-    position: 'absolute',
-    bottom: 5,
-    right: 5,
-    width: 12,
-    height: 12,
-    borderRightWidth: 2,
-    borderBottomWidth: 2,
-    borderColor: '#00c2ff',
-    borderBottomRightRadius: 4,
   },
   videoDisabled: {
     backgroundColor: '#444',
@@ -1829,21 +1751,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 5,
   },
-  debugContainer: {
-    position: 'absolute',
-    top: 50,
-    left: 10,
-    right: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    padding: 8,
-    borderRadius: 5,
-    zIndex: 1000,
-  },
-  debugText: {
-    color: '#00ff00',
-    fontSize: 10,
-    fontFamily: 'monospace',
-  },
   streamLoadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1857,33 +1764,111 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
-  debugIndicator: {
+
+  // Dynamic Layout Styles
+  videoContainerSplit: {
+    flex: 1,
+    position: 'relative',
+    height: height,
+  },
+  videoContainerPip: {
+    flex: 1,
+    position: 'relative',
+    height: height,
+  },
+  videoContainerFullscreen: {
+    flex: 1,
+    position: 'relative',
+    height: height,
+  },
+
+  remoteVideoSplit: {
+    flex: 1,
+    backgroundColor: '#222',
+  },
+  remoteVideoPip: {
+    flex: 1,
+    backgroundColor: '#222',
+  },
+  remoteVideoFullscreen: {
+    flex: 1,
+    backgroundColor: '#222',
+  },
+
+  localVideoSplit: {
+    flex: 1,
+    backgroundColor: '#1a1a1a',
+  },
+  localVideoPip: {
     position: 'absolute',
-    top: 5,
-    left: 5,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    padding: 4,
-    borderRadius: 4,
+    top: 20,
+    right: 20,
+    width: width / 4,
+    height: height / 4,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#00c2ff',
     zIndex: 10,
   },
-  debugIndicatorText: {
-    color: '#00ff00',
-    fontSize: 8,
-    fontFamily: 'monospace',
-  },
-  chatDebugIndicator: {
+  localVideoFullscreen: {
     position: 'absolute',
-    top: 5,
-    right: 5,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    padding: 4,
-    borderRadius: 4,
-    zIndex: 1001,
+    top: 0,
+    left: 0,
+    width: width,
+    height: height,
+    backgroundColor: '#1a1a1a',
+    zIndex: 5,
   },
-  chatDebugText: {
-    color: '#00ff00',
-    fontSize: 8,
-    fontFamily: 'monospace',
+
+  // Layout Selector Styles
+  layoutSelectorContainer: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 1000,
+  },
+  layoutButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 25,
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#00c2ff',
+  },
+  layoutOptionsContainer: {
+    position: 'absolute',
+    top: 60,
+    left: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    borderRadius: 12,
+    padding: 8,
+    minWidth: 120,
+    borderWidth: 1,
+    borderColor: '#00c2ff',
+  },
+  layoutOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginVertical: 2,
+  },
+  layoutOptionActive: {
+    backgroundColor: 'rgba(0, 194, 255, 0.2)',
+  },
+  layoutOptionText: {
+    color: '#fff',
+    fontSize: 16,
+    marginLeft: 12,
+    fontWeight: '500',
+  },
+  layoutOptionTextActive: {
+    color: '#00c2ff',
+    fontWeight: '600',
   },
 });
 

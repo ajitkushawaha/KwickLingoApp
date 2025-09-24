@@ -6,18 +6,16 @@ import {
     View,
     Dimensions,
     Modal,
-    Pressable,
     StatusBar,
     Image,
     Animated,
-    ScrollView,
+    Platform,
 } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import Video from 'react-native-video';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import auth, { signOut, FirebaseAuthTypes } from '@react-native-firebase/auth';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import auth, { signOut } from '@react-native-firebase/auth';
 import { BackHandler, Alert } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
@@ -27,6 +25,12 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 type RootStackParamList = {
     Home: undefined;
     Streame: undefined;
+    LiveStream: undefined;
+    Viewer: {
+        streamId: string;
+        streamerId: string;
+        streamTitle: string;
+    };
     Login: undefined;
     Preferences: undefined;
 };
@@ -39,7 +43,7 @@ interface HomeScreenProps {
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
     const [visible, setVisible] = useState(false);
-    
+
     // Animation values
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(50)).current;
@@ -114,7 +118,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-            
+
             <Video
                 source={require('../../assets/chatvideo.mp4')}
                 style={styles.backgroundVideo}
@@ -125,13 +129,13 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
             {/* Top Header */}
             <SafeAreaView style={styles.safeArea}>
-                <Animated.View 
+                <Animated.View
                     style={[
                         styles.header,
                         {
                             opacity: fadeAnim,
-                            transform: [{ translateY: slideAnim }]
-                        }
+                            transform: [{ translateY: slideAnim }],
+                        },
                     ]}
                 >
                     <TouchableOpacity
@@ -157,16 +161,16 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                 </Animated.View>
             </SafeAreaView>
             {/* Center Overlay - Full Height */}
-            <Animated.View 
+            <Animated.View
                 style={[
                     styles.overlay,
                     {
                         opacity: fadeAnim,
                         transform: [
                             { translateY: slideAnim },
-                            { scale: scaleAnim }
-                        ]
-                    }
+                            { scale: scaleAnim },
+                        ],
+                    },
                 ]}
             >
                 {/* Gradient overlay for better text readability */}
@@ -204,6 +208,42 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                                 <Text style={styles.buttonText}>Let's Connect</Text>
                             </View>
                         </TouchableOpacity>
+
+                        {/* Live Streaming Buttons */}
+                        <Animated.View
+                            style={[
+                                styles.liveStreamButtons,
+                                {
+                                    opacity: fadeAnim,
+                                    transform: [{ translateY: slideAnim }],
+                                },
+                            ]}
+                        >
+                            <TouchableOpacity
+                                style={styles.liveStreamButton}
+                                onPress={() => navigation.navigate('LiveStream')}
+                                activeOpacity={0.8}
+                            >
+                                <View style={styles.buttonContent}>
+                                    <Ionicons name="radio" size={20} color="#fff" />
+                                    <Text style={styles.buttonText}>Go Live</Text>
+                                </View>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.viewStreamsButton}
+                                onPress={() => {
+                                    // TODO: Navigate to live streams list
+                                    Alert.alert('Coming Soon', 'Live streams discovery will be available soon!');
+                                }}
+                                activeOpacity={0.8}
+                            >
+                                <View style={styles.buttonContent}>
+                                    <Ionicons name="eye" size={20} color="#fff" />
+                                    <Text style={styles.buttonText}>Watch Live</Text>
+                                </View>
+                            </TouchableOpacity>
+                        </Animated.View>
                     </Animated.View>
 
                     {/* Quick stats */}
@@ -279,12 +319,12 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                                         <Ionicons name="settings" size={20} color="#00c2ff" />
                                         <Text style={styles.actionButtonText}>Settings</Text>
                                     </TouchableOpacity>
-                                     
+
                                     <TouchableOpacity style={styles.actionButton}>
                                         <Ionicons name="help-circle" size={20} color="#00c2ff" />
                                         <Text style={styles.actionButtonText}>Help</Text>
                                     </TouchableOpacity>
-                                    
+
                                     <TouchableOpacity style={styles.actionButton}>
                                         <Ionicons name="share" size={20} color="#00c2ff" />
                                         <Text style={styles.actionButtonText}>Share</Text>
@@ -292,8 +332,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                                 </View>
 
                                 {/* Logout Button */}
-                                <TouchableOpacity 
-                                    style={styles.logoutButton} 
+                                <TouchableOpacity
+                                    style={styles.logoutButton}
                                     onPress={() => {
                                         handleLogout();
                                         setVisible(false);
@@ -309,7 +349,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
         </View>
     );
-};
+}
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -399,7 +439,36 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
+        marginBottom: 20,
+    },
+    liveStreamButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         marginBottom: 40,
+    },
+    liveStreamButton: {
+        backgroundColor: '#ff4444',
+        paddingVertical: 14,
+        paddingHorizontal: 30,
+        borderRadius: 30,
+        elevation: 6,
+        shadowColor: '#ff4444',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        flex: 0.48,
+    },
+    viewStreamsButton: {
+        backgroundColor: '#ff6b35',
+        paddingVertical: 14,
+        paddingHorizontal: 30,
+        borderRadius: 30,
+        elevation: 6,
+        shadowColor: '#ff6b35',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        flex: 0.48,
     },
     buttonContent: {
         flexDirection: 'row',
@@ -492,17 +561,6 @@ const styles = StyleSheet.create({
         marginTop: 10,
         marginBottom: 4,
         color: '#2c3e50',
-    },
-    closeButton: {
-        backgroundColor: 'white',
-        marginTop: 20,
-        paddingVertical: 10,
-        paddingHorizontal: 25,
-        borderRadius: 20,
-        color: '#fff',
-        position: 'absolute',
-        bottom: 0,
-        left: 20,
     },
     buttonText2: {
         color: '#fff',
@@ -602,21 +660,6 @@ const styles = StyleSheet.create({
         paddingVertical: 15,
         paddingHorizontal: 10,
     },
-    statItem: {
-        alignItems: 'center',
-        flex: 1,
-    },
-    statNumber: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#00c2ff',
-        marginBottom: 5,
-    },
-    statLabel: {
-        fontSize: 12,
-        color: '#ccc',
-        textAlign: 'center',
-    },
     actionButtons: {
         flexDirection: 'row',
         justifyContent: 'space-around',
@@ -656,4 +699,4 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
 
-})
+});
