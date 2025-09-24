@@ -2,9 +2,9 @@
   "name": "kwicklingo-signaling-server",
   "version": "1.0.0",
   "description": "Socket.io signaling server for KwickLingo video chat app",
-  "main": "server.js",
+  "main": "production-server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node production-server.js",
     "start:prod": "node production-server.js",
     "dev": "nodemon server.js",
     "build": "echo 'No build step required for Node.js server'",

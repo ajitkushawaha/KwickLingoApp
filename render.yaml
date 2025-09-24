@@ -1,0 +1,21 @@
+# render.yaml
+services:
+  - type: web
+    name: kwicklingo-server
+    env: node
+    plan: free
+    buildCommand: cd server && npm install --production
+    startCommand: cd server && npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: CORS_ORIGIN
+        value: https://kwicklingo-server.onrender.com
+      - key: MAX_CONNECTIONS
+        value: 1000
+      - key: RATE_LIMIT_WINDOW
+        value: 900000
+      - key: RATE_LIMIT_MAX
+        value: 100

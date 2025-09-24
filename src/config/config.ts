@@ -23,6 +23,6 @@ export const CONFIG = {
     // This allows physical devices and emulators to connect to the same server
     SIGNALING_URL: __DEV__
       ? 'http://10.144.82.144:3000'  // Use computer's IP for all devices
-      : 'https://your-production-server.com',
+      : 'https://kwicklingo-server.onrender.com',
   },
 };

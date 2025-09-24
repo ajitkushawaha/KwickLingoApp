@@ -2,8 +2,8 @@
 export const PRODUCTION_CONFIG = {
   // Server Configuration
   SERVER: {
-    SIGNALING_URL: 'https://your-production-server.com:3000',
-    HEALTH_CHECK_URL: 'https://your-production-server.com:3000/health',
+    SIGNALING_URL: 'https://kwicklingo-server.onrender.com',
+    HEALTH_CHECK_URL: 'https://kwicklingo-server.onrender.com/health',
   },
 
   // Firebase Configuration (Production)
