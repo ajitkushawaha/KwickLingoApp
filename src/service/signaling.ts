@@ -15,13 +15,13 @@ declare global {
 export const connect = () => {
   try {
     console.log('🔌 Attempting to connect to signaling server:', SERVER_URL);
-    
+
     global.socketIO = io(SERVER_URL, {
       transports: ['websocket', 'polling'],
       timeout: 10000,
-      forceNew: true
+      forceNew: true,
     });
-    
+
     global.socketIO.on('connect', () => {
       console.log('✅ Connected to signaling server:', global.socketIO.id);
     });

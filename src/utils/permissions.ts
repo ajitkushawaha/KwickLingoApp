@@ -17,7 +17,7 @@ const PERMISSION_TYPES = {
 export const requestCameraPermission = async (): Promise<boolean> => {
   try {
     const result = await request(PERMISSION_TYPES.CAMERA);
-    
+
     if (result === RESULTS.GRANTED) {
       return true;
     } else if (result === RESULTS.DENIED) {
@@ -28,7 +28,7 @@ export const requestCameraPermission = async (): Promise<boolean> => {
       showPermissionAlert('Camera', 'camera');
       return false;
     }
-    
+
     return false;
   } catch (error) {
     console.error('Error requesting camera permission:', error);
@@ -40,7 +40,7 @@ export const requestCameraPermission = async (): Promise<boolean> => {
 export const requestMicrophonePermission = async (): Promise<boolean> => {
   try {
     const result = await request(PERMISSION_TYPES.MICROPHONE);
-    
+
     if (result === RESULTS.GRANTED) {
       return true;
     } else if (result === RESULTS.DENIED) {
@@ -51,7 +51,7 @@ export const requestMicrophonePermission = async (): Promise<boolean> => {
       showPermissionAlert('Microphone', 'microphone');
       return false;
     }
-    
+
     return false;
   } catch (error) {
     console.error('Error requesting microphone permission:', error);
@@ -93,9 +93,9 @@ const showPermissionAlert = (permissionName: string, settingName: string) => {
     `Please enable ${permissionName.toLowerCase()} permission in settings to use video calling features.`,
     [
       { text: 'Cancel', style: 'cancel' },
-      { 
-        text: 'Open Settings', 
-        onPress: () => Linking.openSettings() 
+      {
+        text: 'Open Settings',
+        onPress: () => Linking.openSettings(),
       },
     ]
   );

@@ -1,14 +1,14 @@
 import React, { useRef, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Image, 
-  Dimensions, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  Dimensions,
+  TouchableOpacity,
   Animated,
   StatusBar,
-  Platform
+  Platform,
 } from 'react-native';
 import Swiper from 'react-native-swiper';
 import LinearGradient from 'react-native-linear-gradient';
@@ -33,13 +33,13 @@ const theme = {
     textLight: '#7f8c8d',
     white: '#ffffff',
     black: '#000000',
-  }
+  },
 };
 
 const Welcome = ({ navigation }: any) => {
   const swiperRef = useRef<any>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  
+
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -47,37 +47,37 @@ const Welcome = ({ navigation }: any) => {
 
   const slides = [
     {
-      title: "Welcome to KwickLingo",
-      subtitle: "Your Gateway to Global Connections",
-      desc: "Connect with people from around the world instantly through video calls and chat.",
+      title: 'Welcome to KwickLingo',
+      subtitle: 'Your Gateway to Global Connections',
+      desc: 'Connect with people from around the world instantly through video calls and chat.',
       gradient: theme.gradients.primary,
-      icon: "globe-outline",
-      features: ["Instant Video Calls", "Global Community", "Safe & Secure"]
+      icon: 'globe-outline',
+      features: ['Instant Video Calls', 'Global Community', 'Safe & Secure'],
     },
     {
-      title: "Meet New People",
-      subtitle: "Discover Amazing Conversations",
-      desc: "Find interesting people from 190+ countries and start meaningful conversations.",
+      title: 'Meet New People',
+      subtitle: 'Discover Amazing Conversations',
+      desc: 'Find interesting people from 190+ countries and start meaningful conversations.',
       gradient: theme.gradients.secondary,
-      icon: "people-outline",
-      features: ["Random Matching", "Interest-Based", "Real-time Chat"]
+      icon: 'people-outline',
+      features: ['Random Matching', 'Interest-Based', 'Real-time Chat'],
     },
     {
-      title: "Safe & Private",
-      subtitle: "Your Privacy Matters",
-      desc: "End-to-end encrypted video calls with advanced privacy protection and reporting system.",
+      title: 'Safe & Private',
+      subtitle: 'Your Privacy Matters',
+      desc: 'End-to-end encrypted video calls with advanced privacy protection and reporting system.',
       gradient: theme.gradients.tertiary,
-      icon: "shield-checkmark-outline",
-      features: ["End-to-End Encryption", "Privacy Protection", "Report System"]
+      icon: 'shield-checkmark-outline',
+      features: ['End-to-End Encryption', 'Privacy Protection', 'Report System'],
     },
     {
-      title: "Ready to Connect?",
-      subtitle: "Start Your Journey",
-      desc: "Join thousands of users worldwide and start making new friends today!",
+      title: 'Ready to Connect?',
+      subtitle: 'Start Your Journey',
+      desc: 'Join thousands of users worldwide and start making new friends today!',
       gradient: theme.gradients.quaternary,
-      icon: "rocket-outline",
-      features: ["Easy Setup", "Instant Access", "24/7 Available"]
-    }
+      icon: 'rocket-outline',
+      features: ['Easy Setup', 'Instant Access', '24/7 Available'],
+    },
   ];
 
   React.useEffect(() => {
@@ -123,7 +123,7 @@ const Welcome = ({ navigation }: any) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      
+
       <Swiper
         ref={swiperRef}
         loop={false}
@@ -140,16 +140,16 @@ const Welcome = ({ navigation }: any) => {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <Animated.View 
+            <Animated.View
               style={[
                 styles.content,
                 {
                   opacity: fadeAnim,
                   transform: [
                     { translateY: slideAnim },
-                    { scale: scaleAnim }
-                  ]
-                }
+                    { scale: scaleAnim },
+                  ],
+                },
               ]}
             >
               {/* Icon */}
@@ -160,7 +160,7 @@ const Welcome = ({ navigation }: any) => {
               {/* Title */}
               <Text style={styles.title}>{slide.title}</Text>
               <Text style={styles.subtitle}>{slide.subtitle}</Text>
-              
+
               {/* Description */}
               <Text style={styles.desc}>{slide.desc}</Text>
 
@@ -196,7 +196,7 @@ const Welcome = ({ navigation }: any) => {
                   <Ionicons name="rocket" size={20} color={theme.colors.white} />
                 </TouchableOpacity>
               )}
-              
+
               {/* Skip Button */}
               {index !== slides.length - 1 && (
                 <TouchableOpacity
@@ -216,14 +216,14 @@ const Welcome = ({ navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  container: { 
+  container: {
     flex: 1,
-    backgroundColor: theme.colors.primary
+    backgroundColor: theme.colors.primary,
   },
-  slide: { 
-    flex: 1, 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
+  slide: {
+    flex: 1,
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 30,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: Platform.OS === 'ios' ? 40 : 30,
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   },
   pagination: {
     bottom: Platform.OS === 'ios' ? 50 : 30,
-  }
+  },
 });
 
 export default Welcome;

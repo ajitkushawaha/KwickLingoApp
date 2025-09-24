@@ -8,8 +8,8 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  Platform,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
@@ -18,7 +18,7 @@ const INTEREST_TAGS = [
   'Travel', 'Food', 'Fashion', 'Fitness', 'Books', 'Photography',
   'Dancing', 'Cooking', 'Nature', 'Comedy', 'Politics', 'Science',
   'History', 'Languages', 'Cars', 'Pets', 'DIY',
-  'Meditation', 'Yoga', 'Anime', 'Manga', 'Crypto'
+  'Meditation', 'Yoga', 'Anime', 'Manga', 'Crypto',
 ];
 
 interface PreferencesScreenProps {
@@ -27,7 +27,6 @@ interface PreferencesScreenProps {
 
 const PreferencesScreen: React.FC<PreferencesScreenProps> = ({ navigation }) => {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
-  const [chatMode, setChatMode] = useState<'video' | 'text'>('video');
   const [anonymousMode, setAnonymousMode] = useState<boolean>(false);
 
   useEffect(() => {
@@ -37,14 +36,10 @@ const PreferencesScreen: React.FC<PreferencesScreenProps> = ({ navigation }) => 
   const loadPreferences = async () => {
     try {
       const savedInterests = await AsyncStorage.getItem('userInterests');
-      const savedChatMode = await AsyncStorage.getItem('chatMode');
       const savedAnonymous = await AsyncStorage.getItem('anonymousMode');
-      
+
       if (savedInterests) {
         setSelectedInterests(JSON.parse(savedInterests));
-      }
-      if (savedChatMode) {
-        setChatMode(savedChatMode as 'video' | 'text');
       }
       if (savedAnonymous) {
         setAnonymousMode(JSON.parse(savedAnonymous));
@@ -57,9 +52,8 @@ const PreferencesScreen: React.FC<PreferencesScreenProps> = ({ navigation }) => 
   const savePreferences = async () => {
     try {
       await AsyncStorage.setItem('userInterests', JSON.stringify(selectedInterests));
-      await AsyncStorage.setItem('chatMode', chatMode);
       await AsyncStorage.setItem('anonymousMode', JSON.stringify(anonymousMode));
-      
+
       Alert.alert('Preferences Saved', 'Your preferences have been saved successfully!');
       navigation.goBack();
     } catch (error) {
@@ -85,13 +79,13 @@ const PreferencesScreen: React.FC<PreferencesScreenProps> = ({ navigation }) => 
         key={`${interest}-${index}`}
         style={[
           styles.interestTag,
-          isSelected && styles.selectedInterestTag
+          isSelected && styles.selectedInterestTag,
         ]}
         onPress={() => toggleInterest(interest)}
       >
         <Text style={[
           styles.interestText,
-          isSelected && styles.selectedInterestText
+          isSelected && styles.selectedInterestText,
         ]}>
           {interest}
         </Text>
@@ -102,62 +96,17 @@ const PreferencesScreen: React.FC<PreferencesScreenProps> = ({ navigation }) => 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#2c3e50" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Preferences</Text>
-        <View style={{ width: 24 }} />
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView style={styles.content}>
-        {/* Chat Mode Selection */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Chat Mode</Text>
-          <View style={styles.modeContainer}>
-            <TouchableOpacity
-              style={[
-                styles.modeButton,
-                chatMode === 'video' && styles.selectedModeButton
-              ]}
-              onPress={() => setChatMode('video')}
-            >
-              <Ionicons 
-                name="videocam" 
-                size={24} 
-                color={chatMode === 'video' ? '#fff' : '#666'} 
-              />
-              <Text style={[
-                styles.modeText,
-                chatMode === 'video' && styles.selectedModeText
-              ]}>
-                Video Chat
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[
-                styles.modeButton,
-                chatMode === 'text' && styles.selectedModeButton
-              ]}
-              onPress={() => setChatMode('text')}
-            >
-              <Ionicons 
-                name="chatbubble" 
-                size={24} 
-                color={chatMode === 'text' ? '#fff' : '#666'} 
-              />
-              <Text style={[
-                styles.modeText,
-                chatMode === 'text' && styles.selectedModeText
-              ]}>
-                Text Only
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
 
         {/* Anonymous Mode */}
         <View style={styles.section}>
@@ -177,11 +126,11 @@ const PreferencesScreen: React.FC<PreferencesScreenProps> = ({ navigation }) => 
             </View>
             <View style={[
               styles.toggle,
-              anonymousMode && styles.toggleActive
+              anonymousMode && styles.toggleActive,
             ]}>
               <View style={[
                 styles.toggleThumb,
-                anonymousMode && styles.toggleThumbActive
+                anonymousMode && styles.toggleThumbActive,
               ]} />
             </View>
           </TouchableOpacity>
@@ -229,6 +178,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
   },
+  headerSpacer: {
+    width: 24,
+  },
   content: {
     flex: 1,
     padding: 20,
@@ -246,35 +198,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#bdc3c7',
     marginBottom: 15,
-  },
-  modeContainer: {
-    flexDirection: 'row',
-    gap: 15,
-  },
-  modeButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#34495e',
-    backgroundColor: 'transparent',
-  },
-  selectedModeButton: {
-    backgroundColor: '#3498db',
-    borderColor: '#3498db',
-  },
-  modeText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#666',
-    fontWeight: '500',
-  },
-  selectedModeText: {
-    color: '#fff',
   },
   toggleContainer: {
     flexDirection: 'row',

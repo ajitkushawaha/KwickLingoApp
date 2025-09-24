@@ -6,8 +6,17 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "start": "react-native start",
-    "test": "jest"
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "type-check": "tsc --noEmit",
+    "build:android": "cd android && ./gradlew assembleRelease",
+    "build:android-bundle": "cd android && ./gradlew bundleRelease",
+    "build:ios": "react-native run-ios --configuration Release",
+    "build:production": "./scripts/build-production.sh",
+    "clean": "rm -rf android/app/build ios/build node_modules/.cache",
+    "prebuild": "npm run clean && npm run lint:fix && npm run type-check && npm run test:coverage"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
